@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 
@@ -32,6 +32,10 @@ app = FastAPI(
 def get_predictor(request: Request) -> StudentHealthPredictor:
     return request.app.state.predictor
 
+PredictorDependency = Annotated[
+    StudentHealthPredictor,
+    Depends(get_predictor),
+]
 
 def make_predictions(
     records: Sequence[dict[str, Any]],
@@ -66,7 +70,7 @@ def health() -> HealthResponse:
 
 @app.get("/model-info", response_model=ModelInfoResponse)
 def model_info(
-    predictor: StudentHealthPredictor = Depends(get_predictor),
+    predictor: PredictorDependency,
 ) -> ModelInfoResponse:
     feature_names = [
         str(feature)
@@ -92,7 +96,7 @@ def model_info(
 @app.post("/predict", response_model=PredictionResponse)
 def predict(
     record: StudentHealthInput,
-    predictor: StudentHealthPredictor = Depends(get_predictor),
+    predictor: PredictorDependency,
 ) -> PredictionResponse:
     return make_predictions(
         records=[record.model_dump()],
@@ -103,7 +107,7 @@ def predict(
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
 def predict_batch(
     request: BatchPredictionRequest,
-    predictor: StudentHealthPredictor = Depends(get_predictor),
+    predictor: PredictorDependency,
 ) -> BatchPredictionResponse:
     predictions = make_predictions(
         records=[

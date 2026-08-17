@@ -1,6 +1,8 @@
 import pandas as pd
 import pytest
+
 from student_health.preprocessing import NativeCategoryTransformer
+
 
 def test_fit_rejects_missing_categorical_column():
     frame = pd.DataFrame(

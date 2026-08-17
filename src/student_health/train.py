@@ -1,6 +1,6 @@
 import joblib
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 
@@ -15,7 +15,6 @@ from student_health.model_builder import (
     make_lightgbm_model,
     make_model_pipeline,
 )
-
 
 TARGET = "health_condition"
 ID_COLUMN = "id"
