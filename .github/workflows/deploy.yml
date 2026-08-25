@@ -1,0 +1,77 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the commit that passed CI
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "${{ vars.ACR_NAME }}"
+
+      - name: Build and push the Docker image
+        id: image
+        shell: bash
+        run: |
+          image="${{ vars.ACR_LOGIN_SERVER }}/${{ vars.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha }}"
+          docker build --tag "$image" .
+          docker push "$image"
+          echo "reference=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the image to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name "${{ vars.AZURE_CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.image.outputs.reference }}" \
+            --output none
+
+      - name: Verify the deployed API
+        shell: bash
+        run: |
+          fqdn=$(az containerapp show \
+            --name "${{ vars.AZURE_CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error "https://${fqdn}/health"; then
+              exit 0
+            fi
+
+            echo "Health check attempt ${attempt} failed; retrying in 10 seconds."
+            sleep 10
+          done
+
+          echo "Deployment did not become healthy within two minutes."
+          exit 1
