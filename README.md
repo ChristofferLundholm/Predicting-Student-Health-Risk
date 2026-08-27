@@ -3,7 +3,7 @@
 An end-to-end machine-learning deployment project that trains a LightGBM
 classifier and serves health-condition predictions through FastAPI. The API is
 packaged as a Docker image, tested with GitHub Actions, stored in Azure
-Container Registry, and deployed to Azure Container Apps.
+Container Registry, and prepared for deployment to Azure Container Apps.
 
 > This project is an educational demonstration. Its predictions are not
 > medical advice and should not be used for clinical decisions.
@@ -42,6 +42,40 @@ No long-lived Azure password is stored in GitHub.
 - OIDC-based continuous deployment with commit-SHA image tags
 - Post-deployment health check
 - Privacy-conscious structured prediction logs
+
+## Model performance
+
+The final LightGBM configuration was evaluated with three-fold out-of-fold
+cross-validation. Balanced accuracy is the primary metric because the target
+classes are imbalanced and ordinary accuracy would be dominated by the largest
+class.
+
+| Metric | Out-of-fold result |
+|---|---:|
+| Balanced accuracy | 0.9498 |
+| Accuracy | 0.9388 |
+| Macro F1 score | 0.8652 |
+
+Recall was 0.9356 for `at-risk`, 0.9498 for `fit`, and 0.9640 for `unhealthy`.
+
+The selected raw Optuna-tuned LightGBM submission was also evaluated on the
+Kaggle competition leaderboard:
+
+| Kaggle result | Score |
+|---|---:|
+| Public leaderboard | 0.94975 |
+| Private leaderboard | 0.95011 |
+| Final position | 760 of 3,355 teams (top 23%) |
+
+The raw submission slightly outperformed the distribution-adjusted variant,
+so it was retained as the final competition submission.
+
+## Demo availability
+
+The Azure-hosted API is intentionally kept offline rather than exposed as a
+permanent public service. If you would like to try the live API, contact me and
+I can arrange access or bring up a demonstration. You can also run the complete
+API locally with Docker using the instructions below.
 
 ## Repository layout
 
@@ -221,7 +255,8 @@ health-related input data.
 ## Limitations
 
 - The model reflects the supplied competition dataset and its biases.
-- There is no user authentication or rate limiting on the demonstration API.
+- If deployed publicly, the demonstration API has no user authentication or
+  rate limiting.
 - Model retraining is currently a deliberate local operation, not an automated
   production training pipeline.
 - Production use would require stronger privacy controls, monitoring, model
